@@ -3,17 +3,28 @@
 #include "PixelConverter.hpp"
 
 using namespace std;
-
+/**
+ * Create an Image from the give RGB image
+ * @param image
+ */
 Image::Image(const Matrix<RGBPixel, Dynamic, Dynamic>& image) {
     rgbImage = image;
     rgbLoaded = true;
 }
 
+/**
+ * Create an Image from the give YCbCr image
+ * @param image
+ */
 Image::Image(const Matrix<YCbCrPixel, Dynamic, Dynamic>& image) {
     yCbCrImage = image;
     yCbCrLoaded = true;
 }
 
+/**
+ * Create an Image from a file
+ * @param filename The filename to read
+ */
 Image::Image(const std::string& filename) {
     ifstream imageFile(filename);
 
@@ -47,25 +58,14 @@ Image::Image(const std::string& filename) {
         rgbImage(i / width, i % width) = pixel;
         i++;
     }
+
+    rgbLoaded = true;
     imageFile.close();
-}
-/*
-Image::Image(Matrix<YCbCrPixel, Dynamic, Dynamic> image) {
-
-}
-*/
-Image::~Image() {
-    delete &rgbImage;
-    //delete &yCbCrImage;
-}
-
-Image::Image() {
-
 }
 
 Matrix<YCbCrPixel, Dynamic, Dynamic> Image::getYCbCrImage() {
     // check if already converted
-    if(yCbCrLoaded) {
+    if(not yCbCrLoaded) {
         // not initialized
         yCbCrImage.resize(rgbImage.rows(), rgbImage.cols());
 
@@ -77,13 +77,14 @@ Matrix<YCbCrPixel, Dynamic, Dynamic> Image::getYCbCrImage() {
         }
     }
 
+    yCbCrLoaded = true;
     return yCbCrImage;
 }
 
 
 Matrix<RGBPixel, Dynamic, Dynamic> Image::getRGBImage() {
     // check if already converted
-    if(rgbLoaded) {
+    if(not rgbLoaded) {
         // not initialized
         rgbImage.resize(yCbCrImage.rows(), yCbCrImage.cols());
 
@@ -94,6 +95,33 @@ Matrix<RGBPixel, Dynamic, Dynamic> Image::getRGBImage() {
             }
         }
     }
-
+    rgbLoaded = true;
     return rgbImage;
+}
+
+void Image::write(const std::string& file) {
+    ofstream f(file);
+
+    f<<"P3"<<endl;
+    f<<"# CREATOR: GIMP PNM Filter Version 1.1"<<endl;
+    f<<"800 600"<<endl<<"255"<<endl;
+    unsigned char red, green, blue;
+    getRGBImage();
+
+
+    for(int i=0; i<rgbImage.rows(); i++) {
+        for(int j=0; j<rgbImage.cols(); j++) {
+            red = rgbImage(i, j).red;
+            green = rgbImage(i, j).green;
+            blue = rgbImage(i, j).blue;
+
+            f<<to_string(red)<<endl<<to_string(green)<<endl<<to_string(blue)<<endl;
+        }
+    }
+    f.close();
+}
+
+Image::~Image() {
+    //delete &rgbImage;
+    //delete &yCbCrImage;
 }

@@ -9,12 +9,14 @@ using Eigen::Dynamic;
 
 class Image {
 public:
-    Image();
     explicit Image(const std::string& filename);
     explicit Image(const Matrix<RGBPixel, Dynamic, Dynamic>& image);
     explicit Image(const Matrix<YCbCrPixel, Dynamic, Dynamic>& image);
 
     Matrix<YCbCrPixel, Dynamic, Dynamic> getYCbCrImage();
+    Matrix<RGBPixel, Dynamic, Dynamic> getRGBImage();
+
+    void write(const std::string& file);
 
     ~Image();
 private:
@@ -23,6 +25,4 @@ private:
 
     Matrix<YCbCrPixel, Dynamic, Dynamic> yCbCrImage;
     bool yCbCrLoaded = false;
-
-    Matrix<RGBPixel, Dynamic, Dynamic> getRGBImage();
 };
