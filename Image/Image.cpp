@@ -164,12 +164,12 @@ vector<Block> Image::encodeYComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(8,8);
 
-    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
+    for(const tuple<pair<int, int>, pair<int, int>, pair<int, int>, pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
-        for(int i=get<0>(corners).first; i<get<2>(corners).first; i++) {
+        for(int i=get<0>(corners).first; i < get<2>(corners).first; i++) {
             col=0;
 
-            for(int j=get<0>(corners).second; j<get<1>(corners).second; j++) {
+            for(int j=get<0>(corners).second; j < get<1>(corners).second; j++) {
                 tmpVals(row, col++) = yCbCrImage(i, j).Y;
             }
             row++;
@@ -235,28 +235,26 @@ std::vector<Block> Image::encodeVComponent() {
     return blocks;
 }
 
-/*
+/**
  * Define the block locations as the 4 corners
  */
 void Image::encodeInit() {
     Matrix<pair<int, int>, Dynamic, Dynamic> blockLimits;
 
-    blockLimits.resize(getHeight()/8, getWidth()/8);
+    blockLimits.resize(getHeight()/8+1, getWidth()/8+1);
 
-    int row=0, col=0;
+    int row=0, col=0, i, j;
     // create the patch edges
-    for(auto i=0; i<getHeight(); i+=8) {
-        col = 0;
-        for (auto j=0; j<getWidth(); j+=8) {
-            blockLimits(row, col) = make_pair(i, j);
-            col++;
+    for(i=0; i<=getHeight()/8; i++) {
+        for (j=0; j<=getWidth()/8; j++) {
+            blockLimits(i, j) = make_pair(i*8, j*8);
         }
-        row++;
     }
 
+    auto p = blockLimits(75, 100);
     // associate the patch edges to a patch. 4 edges per patch
-    for(auto i=0; i<blockLimits.rows()-1; i++) {
-        for(auto j=0; j<blockLimits.cols()-1; j++) {
+    for(i=0; i<blockLimits.rows()-1; i++) {
+        for(j=0; j<blockLimits.cols()-1; j++) {
             auto topL = blockLimits(i, j);
             auto topR = blockLimits(i, j+1);
             auto bottomL = blockLimits(i+1, j);
@@ -274,7 +272,7 @@ Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vect
 
     // place the Y values
     auto YValues = get<0>(uviBlocks);
-    for_each(YValues.begin(), YValues.end(), [&](const Block& block) {
+    for(const Block& block : YValues) {
         auto row_start = get<0>(block.location).first;
         auto row_end = get<2>(block.location).first;
         auto col_start = get<0>(block.location).second;
@@ -289,11 +287,11 @@ Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vect
             }
             row++;
         }
-    });
+    }
 
     // place the Cb values
     auto CbValues = get<1>(uviBlocks);
-    for_each(CbValues.begin(), CbValues.end(), [&](const Block& block) {
+    for(const Block& block: CbValues) {
         auto row_start = get<0>(block.location).first;
         auto row_end = get<2>(block.location).first;
         auto col_start = get<0>(block.location).second;
@@ -315,11 +313,11 @@ Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vect
             }
             row++;
         }
-    });
+    }
 
     // place the Cr values
     auto CrValues = get<2>(uviBlocks);
-    for_each(CrValues.begin(), CrValues.end(), [&](const Block& block) {
+    for(const Block& block: CrValues) {
         auto row_start = get<0>(block.location).first;
         auto row_end = get<2>(block.location).first;
         auto col_start = get<0>(block.location).second;
@@ -341,7 +339,7 @@ Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vect
             }
             row++;
         }
-    });
+    }
 
     return Image(imageMatrix);
 }

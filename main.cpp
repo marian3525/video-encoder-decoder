@@ -15,10 +15,12 @@ int main() {
 
     auto encoded = img.encode();
     auto decoded = Image::decode(encoded);
-    decoded.write("f.ppm");
 
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
     std::cout << duration/1000 << "ms"<<endl;
+
+    decoded.write("f.ppm");
+
     return 0;
 }
