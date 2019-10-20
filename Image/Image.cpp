@@ -109,7 +109,7 @@ void Image::write(const std::string& file) {
     ofstream f(file);
 
     f<<"P3"<<endl;
-    f<<"# CREATOR: GIMP PNM Filter Version 1.1"<<endl;
+    f<<"# encoded/decoded image"<<endl;
     f<<"800 600"<<endl<<"255"<<endl;
     unsigned char red, green, blue;
     getRGBImage();
@@ -151,6 +151,7 @@ int Image::getHeight() const {
 }
 
 std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>> Image::encode() {
+    getYCbCrImage();
     auto yBlocks = encodeYComponent();
     auto uBlocks = encodeUComponent();
     auto vBlocks = encodeVComponent();
@@ -163,19 +164,19 @@ vector<Block> Image::encodeYComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(8,8);
 
-    for_each(blockLocations.begin(), blockLocations.end(), [&](const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners){
+    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
         for(int i=get<0>(corners).first; i<get<2>(corners).first; i++) {
             col=0;
 
-            for(int j=get<0>(corners).second; j<get<0>(corners).second; j++) {
+            for(int j=get<0>(corners).second; j<get<1>(corners).second; j++) {
                 tmpVals(row, col++) = yCbCrImage(i, j).Y;
             }
             row++;
         }
 
         blocks.emplace_back(tmpVals, Y, corners);
-    });
+    }
 
     return blocks;
 }
@@ -185,24 +186,24 @@ std::vector<Block> Image::encodeUComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
-    for_each(blockLocations.begin(), blockLocations.end(), [&](const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners){
+    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
         // step 2 for i, j.
         // Take the average in each 2x2 sub-block
-        for(int i=get<0>(corners).first; i<get<2>(corners).first-2; i+=2) {
+        for(int i=get<0>(corners).first; i<get<2>(corners).first-1; i+=2) {
             col=0;
 
-            for(int j=get<0>(corners).second; j<get<0>(corners).second-2; j+=2) {
+            for(int j=get<0>(corners).second; j<get<1>(corners).second-1; j+=2) {
                 // average the 4 values
-                int sum = yCbCrImage(i, j).Cr       + yCbCrImage(i, j+1).Cr
-                        + yCbCrImage(i+1, j).Cr + yCbCrImage(i+1, j+1).Cr;
+                int sum = yCbCrImage(i, j).Cb      + yCbCrImage(i, j+1).Cb
+                        + yCbCrImage(i+1, j).Cb + yCbCrImage(i+1, j+1).Cb;
                 tmpVals(row, col++) = sum/4;
             }
             row++;
         }
 
         blocks.emplace_back(tmpVals, V, corners);
-    });
+    }
 
     return blocks;
 }
@@ -212,24 +213,24 @@ std::vector<Block> Image::encodeVComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
-    for_each(blockLocations.begin(), blockLocations.end(), [&](const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners){
+    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
         // step 2 for i, j.
         // Take the average in each 2x2 sub-block
-        for(int i=get<0>(corners).first; i<get<2>(corners).first-2; i+=2) {
+        for(int i=get<0>(corners).first; i<get<2>(corners).first-1; i+=2) {
             col=0;
 
-            for(int j=get<0>(corners).second; j<get<0>(corners).second-2; j+=2) {
+            for(int j=get<0>(corners).second; j<get<1>(corners).second-1; j+=2) {
                 // average the 4 values
-                int sum = yCbCrImage(i, j).Cb       + yCbCrImage(i, j+1).Cb
-                          + yCbCrImage(i+1, j).Cb + yCbCrImage(i+1, j+1).Cb;
+                int sum = yCbCrImage(i, j).Cr       + yCbCrImage(i, j+1).Cr
+                          + yCbCrImage(i+1, j).Cr + yCbCrImage(i+1, j+1).Cr;
                 tmpVals(row, col++) = sum/4;
             }
             row++;
         }
 
         blocks.emplace_back(tmpVals, U, corners);
-    });
+    }
 
     return blocks;
 }
@@ -247,7 +248,8 @@ void Image::encodeInit() {
     for(auto i=0; i<getHeight(); i+=8) {
         col = 0;
         for (auto j=0; j<getWidth(); j+=8) {
-            blockLimits(row, col++) = make_pair(i, j);
+            blockLimits(row, col) = make_pair(i, j);
+            col++;
         }
         row++;
     }
@@ -263,4 +265,83 @@ void Image::encodeInit() {
             blockLocations.emplace_back(topL, topR, bottomL, bottomR);
         }
     }
+}
+
+Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>> uviBlocks) {
+
+    Matrix<YCbCrPixel, Dynamic, Dynamic> imageMatrix;
+    imageMatrix.resize(600, 800);
+
+    // place the Y values
+    auto YValues = get<0>(uviBlocks);
+    for_each(YValues.begin(), YValues.end(), [&](const Block& block) {
+        auto row_start = get<0>(block.location).first;
+        auto row_end = get<2>(block.location).first;
+        auto col_start = get<0>(block.location).second;
+        auto col_end = get<1>(block.location).second;
+        auto row = 0, col = 0;
+
+        for(auto i=row_start; i<row_end; i++) {
+            col = 0;
+            for(auto j=col_start; j<col_end; j++) {
+                imageMatrix(i, j).Y = block.values(row, col);
+                col++;
+            }
+            row++;
+        }
+    });
+
+    // place the Cb values
+    auto CbValues = get<1>(uviBlocks);
+    for_each(CbValues.begin(), CbValues.end(), [&](const Block& block) {
+        auto row_start = get<0>(block.location).first;
+        auto row_end = get<2>(block.location).first;
+        auto col_start = get<0>(block.location).second;
+        auto col_end = get<1>(block.location).second;
+        auto row = 0, col = 0;
+
+        // for each element in the block's elements, expand each value to a 2x2 matrix and place it in the image matrix
+        for(auto i=row_start; i<row_end; i+=2) {
+            col = 0;
+            for(auto j=col_start; j<col_end; j+=2) {
+                auto value = block.values(row, col);
+
+                imageMatrix(i, j).Cb = value;
+                imageMatrix(i, j+1).Cb = value;
+                imageMatrix(i+1, j).Cb = value;
+                imageMatrix(i+1, j+1).Cb = value;
+
+                col++;
+            }
+            row++;
+        }
+    });
+
+    // place the Cr values
+    auto CrValues = get<2>(uviBlocks);
+    for_each(CrValues.begin(), CrValues.end(), [&](const Block& block) {
+        auto row_start = get<0>(block.location).first;
+        auto row_end = get<2>(block.location).first;
+        auto col_start = get<0>(block.location).second;
+        auto col_end = get<1>(block.location).second;
+        auto row = 0, col = 0;
+
+        // for each element in the block's elements, expand each value to a 2x2 matrix and place it in the image matrix
+        for(auto i=row_start; i<row_end; i+=2) {
+            col = 0;
+            for(auto j=col_start; j<col_end; j+=2) {
+                auto value = block.values(row, col);
+
+                imageMatrix(i, j).Cr = value;
+                imageMatrix(i, j+1).Cr = value;
+                imageMatrix(i+1, j).Cr = value;
+                imageMatrix(i+1, j+1).Cr = value;
+
+                col++;
+            }
+            row++;
+        }
+    });
+
+    return Image(imageMatrix);
 }

@@ -14,18 +14,8 @@ int main() {
     // the original image
 
     auto encoded = img.encode();
-    auto y = get<0>(encoded);
-
-    for(const auto & i : y) {
-        auto val = i.values;
-
-        for(auto row = 0; row < val.rows(); row++) {
-            for(auto col = 0; col < val.cols(); col++) {
-                cout<<(int) val(row, col) << " ";
-            }
-            cout<<endl;
-        }
-    }
+    auto decoded = Image::decode(encoded);
+    decoded.write("f.ppm");
 
     auto t2 = std::chrono::high_resolution_clock::now();
     auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
