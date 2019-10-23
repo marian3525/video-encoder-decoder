@@ -23,6 +23,8 @@ public:
     int getWidth() const;
     int getHeight() const;
 
+    RGBPixel operator()(int row, int col);
+
     void write(const std::string& file);
 
     ~Image();

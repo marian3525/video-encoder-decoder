@@ -186,7 +186,7 @@ std::vector<Block> Image::encodeUComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
-    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
+    for(const tuple<pair<int, int>, pair<int, int>, pair<int, int>, pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
         // step 2 for i, j.
         // Take the average in each 2x2 sub-block
@@ -213,7 +213,7 @@ std::vector<Block> Image::encodeVComponent() {
     Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
-    for(const std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>& corners : blockLocations){
+    for(const tuple<pair<int, int>, pair<int, int>, pair<int, int>, pair<int, int>>& corners : blockLocations){
         int row=0, col=0;
         // step 2 for i, j.
         // Take the average in each 2x2 sub-block
@@ -265,7 +265,7 @@ void Image::encodeInit() {
     }
 }
 
-Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>> uviBlocks) {
+Image Image::decode(tuple<vector<Block>, vector<Block>, vector<Block>> uviBlocks) {
 
     Matrix<YCbCrPixel, Dynamic, Dynamic> imageMatrix;
     imageMatrix.resize(600, 800);
@@ -342,4 +342,9 @@ Image Image::decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vect
     }
 
     return Image(imageMatrix);
+}
+
+RGBPixel Image::operator()(int row, int col) {
+    getRGBImage();
+    return rgbImage(row, col);
 }
