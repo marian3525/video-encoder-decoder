@@ -1,7 +1,8 @@
 #include <iostream>
 #include <chrono>
 #include <fstream>
-#include "Image/Image.hpp"
+#include "ImageUtils/Image.hpp"
+#include "encodingUtils/Block.hpp"
 
 using namespace std;
 
@@ -42,27 +43,27 @@ void writeImageSample(Image& img, const string& filename) {
 int main() {
     auto t1 = std::chrono::high_resolution_clock::now();
 
-    auto img = Image{"/home/marian/Documents/CS/PSAV/video-encoder-decoder/image.ppm"};
+    auto img = Image{"../image.ppm"};
     //auto converted = img.getYCbCrImage();
+    writeImageSample(img, "../blocksOut/original.txt");
 
     // create a list of 8x8 matrixes containing the 64 values, the type of block (Y) and the position of the block in
     // the original image
+    tuple<vector<Block>, vector<Block>, vector<Block>> encoded = img.encode();
+    auto a = get<0>(encoded)[0];
+    auto x = a.forwardDCT();
+//    writeBlockToFile("../blocksOut/YBlock.txt", get<0>(encoded)[0]);
+//    writeBlockToFile("../blocksOut/UBlock.txt", get<1>(encoded)[0]);
+//    writeBlockToFile("../blocksOut/VBlock.txt", get<2>(encoded)[0]);
 
-    writeImageSample(img, "/home/marian/Documents/CS/PSAV/video-encoder-decoder/blocksOut/original.txt");
-
-    auto encoded = img.encode();
-
-    writeBlockToFile("/home/marian/Documents/CS/PSAV/video-encoder-decoder/blocksOut/YBlock.txt", get<0>(encoded)[0]);
-    writeBlockToFile("/home/marian/Documents/CS/PSAV/video-encoder-decoder/blocksOut/UBlock.txt", get<1>(encoded)[0]);
-    writeBlockToFile("/home/marian/Documents/CS/PSAV/video-encoder-decoder/blocksOut/VBlock.txt", get<2>(encoded)[0]);
-
-    auto decoded = Image::decode(encoded);
-    writeImageSample(decoded, "/home/marian/Documents/CS/PSAV/video-encoder-decoder/blocksOut/decoded.txt");
+    Image decoded = Image::decode(encoded);
+    writeImageSample(decoded, "../blocksOut/decoded.txt");
 
     auto t2 = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>( t2 - t1 ).count();
-    std::cout << duration/1000 << "ms"<<endl;
-    //decoded.write("f.ppm");
+    auto duration = std::chrono::duration_cast<std::chrono::milliseconds>( t2 - t1 ).count();
+    std::cout << duration << "ms"<<endl;
+
+    decoded.write("../decoded.ppm");
 
     return 0;
 }
