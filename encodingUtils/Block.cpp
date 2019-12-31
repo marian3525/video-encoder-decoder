@@ -1,5 +1,9 @@
 #include <iostream>
 #include "Block.hpp"
+#include "DcCoefficient.hpp"
+#include "AcCoefficient.hpp"
+using namespace std;
+#define PI (double)EIGEN_PI
 
 Block Block::expandTo8x8() const {
     Block output{*this};
@@ -18,11 +22,12 @@ Block Block::expandTo8x8() const {
         rowOutput = 2 * i;
         for (int j = 0; j < 4; j++) {
             colOutput = 2 * j;
-            // reverse sub-sampling
-            output.values(rowOutput, colOutput) = output.values(rowOutput, colOutput + 1) = output.values(rowOutput + 1,
-                                                                                                          colOutput) = output.values(
-                    rowOutput + 1, colOutput + 1)
-                    = values(i, j);
+            // reverse sub-sampling, place the values(i, j) in 4 spotss
+            output.values(rowOutput, colOutput)
+            = output.values(rowOutput, colOutput + 1)
+            = output.values(rowOutput + 1,colOutput)
+            = output.values(rowOutput + 1, colOutput + 1)
+            = values(i, j);
         }
     }
 
@@ -34,33 +39,27 @@ Block Block::expandTo8x8() const {
  * @return
  */
 Block Block::forwardDCT() const {
-    auto inputExpanded = expandTo8x8();
+    // copy constructor
     Block output{*this};
 
-    // subtract 128
+    // expand U and V blocks (4x4) to 8x8. Leave Y unchanged
+    auto inputExpanded = output.expandTo8x8();
+    output.values.resize(8, 8);
+    output.values = inputExpanded.values;
+
+    // subtract 128 from the expanded input block (this)
     for (auto i = 0; i < inputExpanded.values.rows(); i++) {
         for (auto j = 0; j < inputExpanded.values.cols(); j++) {
-            inputExpanded.values(i, j) -= 128;
+            output.values(i, j) -= 128;
         }
     }
 
-    // G(u,v)
+    // compute G(u,v) = 1/4 * alpha(u) * alpha(v) * sum
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            output.values(u, v) = 0.25F * alpha(u) * alpha(v) * sumFDCT(u, v);
+            output.values(u, v) = 0.25F * alpha(u) * alpha(v) * output.sumFDCT(u, v);
         }
     }
-
-    auto Q = Matrix<uint8_t, 8, 8>{};
-    Q.row(0) << 6, 4, 4, 6, 10, 16, 20, 24;
-    Q.row(1) << 5, 5, 6, 8, 10, 23, 24, 22;
-    Q.row(2) << 6, 5, 6, 10, 16, 23, 28, 22;
-    Q.row(3) << 6, 7, 9, 12, 20, 35, 32, 25;
-    Q.row(4) << 7, 9, 15, 22, 27, 44, 41, 31;
-    Q.row(5) << 10, 14, 22, 26, 32, 42, 45, 37;
-    Q.row(6) << 20, 26, 31, 35, 41, 48, 48, 40;
-    Q.row(7) << 29, 37, 38, 39, 45, 40, 41, 40;
-
 
     // divide by Q
     for (int u = 0; u < 8; u++) {
@@ -74,37 +73,28 @@ Block Block::forwardDCT() const {
 
 float Block::alpha(const int &u) const {
     if (u == 0) {
-        return 0.707;
+        return 0.707;   // 1 / sqrt(2) ~ 0.707
     } else {
         return 1;
     }
 }
 
 Block Block::inverseDCT() const {
+
+    // copy constructor
     Block output{*this};
 
-    auto Q = Matrix<uint8_t, 8, 8>{};
-    Q.row(0) << 6, 4, 4, 6, 10, 16, 20, 24;
-    Q.row(1) << 5, 5, 6, 8, 10, 23, 24, 22;
-    Q.row(2) << 6, 5, 6, 10, 16, 23, 28, 22;
-    Q.row(3) << 6, 7, 9, 12, 20, 35, 32, 25;
-    Q.row(4) << 7, 9, 15, 22, 27, 44, 41, 31;
-    Q.row(5) << 10, 14, 22, 26, 32, 42, 45, 37;
-    Q.row(6) << 20, 26, 31, 35, 41, 48, 48, 40;
-    Q.row(7) << 29, 37, 38, 39, 45, 40, 41, 40;
-
-
-    // divide by Q
+    // multiply by Q
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
             output.values(u, v) *= Q(u, v);
         }
     }
 
-    // f(u,v)
+    // f(x,y)
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-            output.values(x, y) = 0.25F * sumIDCT(x, y);
+            output.values(x, y) = 0.25F * output.sumIDCT(x, y);
         }
     }
 
@@ -123,7 +113,7 @@ float Block::sumFDCT(const int &u, const int &v) const {
 
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-            sum += cos(((2 * x + 1) * u * EIGEN_PI) / 16) * cos(((2 * y + 1) * v * EIGEN_PI) / 16);
+            sum += values(x, y) * cos(((2 * x + 1) * u * PI) / 16) * cos(((2 * y + 1) * v * PI) / 16);
         }
     }
 
@@ -135,9 +125,125 @@ float Block::sumIDCT(const int &x, const int &y) const {
 
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            sum += cos(((2 * x + 1) *u * EIGEN_PI) / 16) * cos(((2 * y + 1) * v * EIGEN_PI) / 16);
+            sum += values(x, y) * cos(((2 * x + 1) * u * PI) / 16) * cos(((2 * y + 1) * v * PI) / 16);
         }
     }
 
     return sum;
+}
+
+/**
+ * Compress a 8x8 block to 4x4 by averaging each 2x2 region to a single value
+ * @return
+ */
+Block Block::compressTo4x4() const {
+    // copy constructor
+    Block output{*this};
+
+    int col=0, row=0;
+
+    // step 2 for i, j.
+    // Take the average in each 2x2 sub-block
+    for(int i=0; i<7; i+=2) {
+        col=0;
+        for(int j=0; j<7; j+=2) {
+            // average the 4 values
+            int sum = values(i, j) + values(i, j+1) + values(i+1, j) + values(i+1, j+1);
+            output.values(row, col++) = sum/4;
+        }
+        row++;
+    }
+
+    return output;
+}
+
+std::vector<ACCoefficient> Block::entropy_encode() const {
+    vector<ACCoefficient> output;
+    vector<std::byte> zigZagParsed;
+
+    bool isAtTop;
+    bool isInTopTriangle;
+    int i=0, j=0;
+
+    while(i < 7 && j < 7) {
+
+        isAtTop = i == 0;
+        isInTopTriangle = i + j <= 7;
+
+        zigZagParsed.push_back((byte)values(i, j));
+
+        if(isAtTop && isInTopTriangle) {
+            j++;
+            while(j != 0) {
+                zigZagParsed.push_back((byte)values(i, j));
+
+                j--, i++;
+            }
+            continue;
+        }
+
+        if(!isAtTop && isInTopTriangle) {
+            i++;
+            while(i != 0) {
+                zigZagParsed.push_back((byte)values(i, j));
+
+                j++, i--;
+            }
+            continue;
+        }
+
+        if(isAtTop && !isInTopTriangle) {
+            i++;
+            while(i < 7) {
+                zigZagParsed.push_back((byte)values(i, j));
+
+                i++, j--;
+            }
+            continue;
+        }
+        if(!isAtTop && !isInTopTriangle) {
+            j++;
+            while(j < 7) {
+                zigZagParsed.push_back((byte)values(i, j));
+
+                i--, j++;
+            }
+            continue;
+        }
+
+    }
+    // zigZagParsed ready
+
+    // start building the output
+    auto first = DCCoefficient(zigZagParsed[0]);
+    // add the first value to the output as an AcCoef, even if it doesn't have a NoOfZeroes
+    output.emplace_back(0, first);
+
+    int noOfZeroes = 0;
+    bool endingWithZero = false;
+    for(const auto& val : zigZagParsed) {
+        if(val == static_cast<std::byte>(0)) {
+            // count the zeroes in front of the next non-zero value
+           noOfZeroes++;
+           endingWithZero = true;
+           continue;
+        }
+        else {
+            endingWithZero = false;
+        }
+
+        auto coef = ACCoefficient(noOfZeroes, DCCoefficient(val));
+
+        output.push_back(coef);
+    }
+
+    if(endingWithZero) {
+        // TODO, handle the case where the block ends with a sequence of 0s
+    }
+
+    return output;
+}
+
+Block Block::entropy_decode(std::vector<ACCoefficient> encodedBlock) {
+    return Block();
 }

@@ -160,7 +160,7 @@ std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>> Image::en
 
 vector<Block> Image::encodeYComponent() {
     vector<Block> blocks;
-    Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
+    Matrix<int, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(8,8);
 
     for(const tuple<pair<int, int>, pair<int, int>, pair<int, int>, pair<int, int>>& corners : blockLocations){
@@ -183,7 +183,7 @@ vector<Block> Image::encodeYComponent() {
 
 std::vector<Block> Image::encodeUComponent() {
     vector<Block> blocks;
-    Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
+    Matrix<int, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
     // corners: corner coords of a block
@@ -212,7 +212,7 @@ std::vector<Block> Image::encodeUComponent() {
 
 std::vector<Block> Image::encodeVComponent() {
     vector<Block> blocks;
-    Matrix<uint8_t, Dynamic, Dynamic> tmpVals;
+    Matrix<int, Dynamic, Dynamic> tmpVals;
     tmpVals.resize(4,4);
 
     for(const tuple<pair<int, int>, pair<int, int>, pair<int, int>, pair<int, int>>& corners : blockLocations){
