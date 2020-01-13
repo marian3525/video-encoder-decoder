@@ -4,15 +4,20 @@
 
 class DCCoefficient {
 public:
-    explicit DCCoefficient(std::byte value): size{DCCoefficient::getScale(static_cast<int>(value))}, amplitude{value} {};
+    explicit DCCoefficient(int value): size{DCCoefficient::getScale(static_cast<int>(value))}, amplitude{value} {};
     int size;
-    std::byte amplitude;
+    int amplitude;
 private:
     static int getScale(int value) {
+        if(value == 0) {
+            return 0;
+        }
+        value = abs(value);
         for(int i=0; i<9; i++) {
-            if(value > pow(2, i) && value < pow(2, i+1)) {
+            if(value >= pow(2, i) && value < pow(2, i+1)) {
                 return i;
             }
         }
+        assert(false);
     }
 };

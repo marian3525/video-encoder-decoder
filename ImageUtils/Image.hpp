@@ -18,7 +18,7 @@ public:
     Matrix<RGBPixel, Dynamic, Dynamic> getRGBImage();
     std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>> encode();
 
-    static Image decode(std::tuple<std::vector<Block>, std::vector<Block>, std::vector<Block>>);
+    static Image decode(std::tuple<std::vector<Block*>, std::vector<Block*>, std::vector<Block*>>, int rows, int cols);
 
     int getWidth() const;
     int getHeight() const;

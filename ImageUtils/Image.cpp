@@ -38,7 +38,7 @@ Image::Image(const std::string& filename) {
     getline(imageFile, line); // width height
 
     width = stoi(line.substr(0, 3));
-    height = stoi(line.substr(3, 6));
+    height = stoi(line.substr(4, 6));
 
     rgbImage = *(new Matrix<RGBPixel, Dynamic, Dynamic>());
     rgbImage.resize(height, width);
@@ -204,7 +204,7 @@ std::vector<Block> Image::encodeUComponent() {
             row++;
         }
 
-        blocks.emplace_back(tmpVals, V, corners);
+        blocks.emplace_back(tmpVals, U, corners);
     }
 
     return blocks;
@@ -231,7 +231,7 @@ std::vector<Block> Image::encodeVComponent() {
             row++;
         }
 
-        blocks.emplace_back(tmpVals, U, corners);
+        blocks.emplace_back(tmpVals, V, corners);
     }
 
     return blocks;
@@ -253,7 +253,6 @@ void Image::encodeInit() {
         }
     }
 
-    auto p = blockLimits(75, 100);
     // associate the patch edges to a patch. 4 edges per patch
     for(i=0; i<blockLimits.rows()-1; i++) {
         for(j=0; j<blockLimits.cols()-1; j++) {
@@ -267,24 +266,24 @@ void Image::encodeInit() {
     }
 }
 
-Image Image::decode(tuple<vector<Block>, vector<Block>, vector<Block>> uviBlocks) {
+Image Image::decode(tuple<vector<Block*>, vector<Block*>, vector<Block*>> uviBlocks, int rows, int cols) {
 
     Matrix<YCbCrPixel, Dynamic, Dynamic> imageMatrix;
-    imageMatrix.resize(600, 800);
+    imageMatrix.resize(rows, cols);
 
     // place the Y values
     auto YValues = get<0>(uviBlocks);
-    for(const Block& block : YValues) {
-        auto row_start = get<0>(block.location).first;
-        auto row_end = get<2>(block.location).first;
-        auto col_start = get<0>(block.location).second;
-        auto col_end = get<1>(block.location).second;
+    for(const auto block : YValues) {
+        auto row_start = get<0>(block->location).first;
+        auto row_end = get<2>(block->location).first;
+        auto col_start = get<0>(block->location).second;
+        auto col_end = get<1>(block->location).second;
         auto row = 0, col = 0;
 
         for(auto i=row_start; i<row_end; i++) {
             col = 0;
             for(auto j=col_start; j<col_end; j++) {
-                imageMatrix(i, j).Y = block.values(row, col);
+                imageMatrix(i, j).Y = block->values(row, col);
                 col++;
             }
             row++;
@@ -293,11 +292,11 @@ Image Image::decode(tuple<vector<Block>, vector<Block>, vector<Block>> uviBlocks
 
     // place the Cb values
     auto CbValues = get<1>(uviBlocks);
-    for(const Block& block: CbValues) {
-        auto row_start = get<0>(block.location).first;
-        auto row_end = get<2>(block.location).first;
-        auto col_start = get<0>(block.location).second;
-        auto col_end = get<1>(block.location).second;
+    for(const auto block: CbValues) {
+        auto row_start = get<0>(block->location).first;
+        auto row_end = get<2>(block->location).first;
+        auto col_start = get<0>(block->location).second;
+        auto col_end = get<1>(block->location).second;
         auto row = 0, col = 0;
 
         // for each element in the block's elements, expand each value to a 2x2 matrix and place it in the image matrix
@@ -305,7 +304,7 @@ Image Image::decode(tuple<vector<Block>, vector<Block>, vector<Block>> uviBlocks
             col = 0;
 
             for(auto j=col_start; j<col_end; j+=2) {
-                auto value = block.values(row, col);
+                auto value = block->values(row, col);
 
                 imageMatrix(i, j).Cb = value;
                 imageMatrix(i, j+1).Cb = value;
@@ -320,18 +319,18 @@ Image Image::decode(tuple<vector<Block>, vector<Block>, vector<Block>> uviBlocks
 
     // place the Cr values
     auto CrValues = get<2>(uviBlocks);
-    for(const Block& block: CrValues) {
-        auto row_start = get<0>(block.location).first;
-        auto row_end = get<2>(block.location).first;
-        auto col_start = get<0>(block.location).second;
-        auto col_end = get<1>(block.location).second;
+    for(const auto block: CrValues) {
+        auto row_start = get<0>(block->location).first;
+        auto row_end = get<2>(block->location).first;
+        auto col_start = get<0>(block->location).second;
+        auto col_end = get<1>(block->location).second;
         auto row = 0, col = 0;
 
         // for each element in the block's elements, expand each value to a 2x2 matrix and place it in the image matrix
         for(auto i=row_start; i<row_end; i+=2) {
             col = 0;
             for(auto j=col_start; j<col_end; j+=2) {
-                auto value = block.values(row, col);
+                auto value = block->values(row, col);
 
                 imageMatrix(i, j).Cr = value;
                 imageMatrix(i, j+1).Cr = value;
