@@ -94,13 +94,11 @@ int main() {
     // the original image
     tuple<vector<Block>, vector<Block>, vector<Block>> encoded = img.encode();
 
-
-
-//    auto directTransformed = directTransformAll(encoded);
-//    auto inverseTransformed = inverseTransformAll(directTransformed);
-//    writeBlockToFile("../blocksOut/beforeDCT", get<0>(encoded)[0]);
-//    writeBlockToFile("../blocksOut/afterDCT", get<0>(directTransformed)[0]);
-//    writeBlockToFile("../blocksOut/afterIDCT", get<0>(inverseTransformed)[0]);
+    auto directTransformed = directTransformAll(encoded);
+    auto inverseTransformed = inverseTransformAll(directTransformed);
+    writeBlockToFile("../blocksOut/beforeDCT", get<0>(encoded)[0]);
+    writeBlockToFile("../blocksOut/afterDCT", get<0>(directTransformed)[0]);
+    writeBlockToFile("../blocksOut/afterIDCT", get<0>(inverseTransformed)[0]);
 
     vector<ACCoefficient> entropy_encoded;
 

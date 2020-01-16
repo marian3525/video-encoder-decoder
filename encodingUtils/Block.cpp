@@ -56,17 +56,17 @@ Block Block::forwardDCT() const {
         }
     }
 
-    // compute G(u,v) = 1/4 * alpha(u) * alpha(v) * sum
+    // compute G(u,v) = 1/4 * alpha(u) * alpha(v) * sum FOR THE INPUT BLOCK, NOT output
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            output.values(u, v) = 0.25F * alpha(u) * alpha(v) * output.sumFDCT(u, v);
+            output.values(u, v) = 0.25F * alpha(u) * alpha(v) * this->sumFDCT(u, v);
         }
     }
 
-    // divide by Q
+    // divide by Q: quantize the DCT coefs. obtained above
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            //output.values(u, v) /= Q(u, v);
+            output.values(u, v) /= Q(u, v);
         }
     }
 
@@ -89,7 +89,7 @@ Block Block::inverseDCT() const {
     // multiply by Q
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            //output.values(u, v) *= Q(u, v);
+            output.values(u, v) *= Q(u, v);
         }
     }
 
