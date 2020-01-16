@@ -52,8 +52,9 @@ tuple<vector<Block>, vector<Block>, vector<Block>> directTransformAll(tuple<vect
         vector<Block> transformed;  // vector to write the transformed blocks into
 
         // map the list of blocks to their transformed value
-        for(auto& block: blocks) {
+        for(auto block: blocks) {
             transformed.push_back(block.forwardDCT());
+            // transformed.push_back(block);
         }
 
         return transformed;
@@ -62,7 +63,29 @@ tuple<vector<Block>, vector<Block>, vector<Block>> directTransformAll(tuple<vect
     return make_tuple(transformOperation(Y), transformOperation(U), transformOperation(V));
 }
 
-tuple<vector<Block>, vector<Block>, vector<Block>> inverseTransformAll(tuple<vector<Block>, vector<Block>, vector<Block>> input) {
+tuple<vector<Block*>, vector<Block*>, vector<Block*>> inverseTransformAll(tuple<vector<Block*>, vector<Block*>, vector<Block*>> input) {
+    // put all blocks into a single vector
+    auto Y = get<0>(input);
+    auto U = get<1>(input);
+    auto V = get<2>(input);
+
+    // apply a forwardDCT to all elements of a list and return the list
+    auto transformOperation = [&](const vector<Block*>& blocks) {
+        vector<Block*> transformed;  // vector to write the transformed blocks into
+
+        // map the list of blocks to their transformed value
+        for(const auto& block: blocks) {
+            transformed.push_back(block->inverseDCT());
+            // transformed.push_back(block);
+        }
+
+        return transformed;
+    };
+
+    return make_tuple(transformOperation(Y), transformOperation(U), transformOperation(V));
+}
+
+tuple<vector<Block*>, vector<Block*>, vector<Block*>> inverseTransformAll(tuple<vector<Block>, vector<Block>, vector<Block>> input) {
     // put all blocks into a single vector
     auto Y = get<0>(input);
     auto U = get<1>(input);
@@ -70,11 +93,12 @@ tuple<vector<Block>, vector<Block>, vector<Block>> inverseTransformAll(tuple<vec
 
     // apply a forwardDCT to all elements of a list and return the list
     auto transformOperation = [&](const vector<Block>& blocks) {
-        vector<Block> transformed;  // vector to write the transformed blocks into
+        vector<Block*> transformed;  // vector to write the transformed blocks into
 
         // map the list of blocks to their transformed value
         for(const auto& block: blocks) {
             transformed.push_back(block.inverseDCT());
+            // transformed.push_back(block);
         }
 
         return transformed;
@@ -95,23 +119,21 @@ int main() {
     tuple<vector<Block>, vector<Block>, vector<Block>> encoded = img.encode();
 
     auto directTransformed = directTransformAll(encoded);
-    auto inverseTransformed = inverseTransformAll(directTransformed);
-    writeBlockToFile("../blocksOut/beforeDCT", get<0>(encoded)[0]);
-    writeBlockToFile("../blocksOut/afterDCT", get<0>(directTransformed)[0]);
-    writeBlockToFile("../blocksOut/afterIDCT", get<0>(inverseTransformed)[0]);
+    writeBlockToFile("../blocksOut/DCT/beforeDCT", get<0>(encoded)[0]);
+    writeBlockToFile("../blocksOut/DCT/afterDCT", get<0>(directTransformed)[0]);
 
     vector<ACCoefficient> entropy_encoded;
 
-    int noOfBlocks = get<0>(encoded).size();
+    int noOfBlocks = get<0>(directTransformed).size();
 
     // place all ACCoefficients in the output
     for(size_t i=0; i<noOfBlocks; i++) {
         // get the i-th block of each type
         // skip the DCT part, expand to 8x8
 
-        auto y = get<0>(encoded)[i].expandTo8x8();
-        auto cb = get<1>(encoded)[i].expandTo8x8();
-        auto cr = get<2>(encoded)[i].expandTo8x8();
+        auto y = get<0>(directTransformed)[i].expandTo8x8();
+        auto cb = get<1>(directTransformed)[i].expandTo8x8();
+        auto cr = get<2>(directTransformed)[i].expandTo8x8();
 
 
         // encode them
@@ -161,24 +183,24 @@ int main() {
     }
     // decode the array of ACCoefficients into blocks
     // blocks are then fed into entropy-decoder
-    auto decoded_output = make_tuple(tmpY, tmpU, tmpV);
-
-    //auto dequantized = inverseTransformAll(decoded_output);
+    tuple<vector<Block*>, vector<Block*>, vector<Block*>> decoded_output = make_tuple(tmpY, tmpU, tmpV);
+    auto dequantized = inverseTransformAll(directTransformed);
+    writeBlockToFile("../blocksOut/DCT/afterIDCT", *get<0>(dequantized)[0]);
 
 //    // in inverseTransformed U and V are 8x8
 //    // compress them back to 4x4 to display an image
-    auto Y = get<0>(decoded_output);    // Y stays the same, at 8x8
+    auto Y = get<0>(dequantized);    // Y stays the same, at 8x8
 
     auto U = vector<Block*>{};
     // transform each U block into a 4x4
 
-    for(const auto& block : get<1>(decoded_output)) {
+    for(const auto& block : get<1>(dequantized)) {
         U.push_back(block->compressTo4x4());
     }
 
     auto V = vector<Block*>{};
     // transform each V block into a 4x4
-    for(const auto& block : get<2>(decoded_output)) {
+    for(const auto& block : get<2>(dequantized)) {
         V.push_back(block->compressTo4x4());
     }
 

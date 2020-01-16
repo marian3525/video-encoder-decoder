@@ -108,9 +108,9 @@ Matrix<RGBPixel, Dynamic, Dynamic> Image::getRGBImage() {
 void Image::write(const std::string& file) {
     ofstream f(file);
 
-    f<<"P3"<<endl;
-    f<<"# encoded/decoded image"<<endl;
-    f<<"800 600"<<endl<<"255"<<endl;
+    f << "P3"<<endl;
+    f << "# encoded/decoded image" << endl;
+    f << width << " " << height << endl << "255" << endl;
     unsigned char red, green, blue;
     getRGBImage();
 
@@ -343,7 +343,10 @@ Image Image::decode(tuple<vector<Block*>, vector<Block*>, vector<Block*>> uviBlo
         }
     }
 
-    return Image(imageMatrix);
+    auto img =  Image(imageMatrix);
+    img.height = rows;
+    img.width = cols;
+    return img;
 }
 
 RGBPixel Image::operator()(int row, int col) {

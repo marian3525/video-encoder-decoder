@@ -5,7 +5,8 @@
 using namespace std;
 #define PI (double)EIGEN_PI
 
-int Block::END_OF_BLOCK = -2;
+int Block::END_OF_BLOCK = -99999;
+Matrix<int, 8, 8> Block::Q = Matrix<int, 8, 8>{};
 
 Block* Block::expandTo8x8() const {
     auto* output = new Block{*this};
@@ -24,12 +25,12 @@ Block* Block::expandTo8x8() const {
         rowOutput = 2 * i;
         for (int j = 0; j < 4; j++) {
             colOutput = 2 * j;
-            // reverse sub-sampling, place the values(i, j) in 4 spotss
+            // reverse sub-sampling, place the values(i, j) in 4 spots
             output->values(rowOutput, colOutput)
             = output->values(rowOutput, colOutput + 1)
             = output->values(rowOutput + 1,colOutput)
             = output->values(rowOutput + 1, colOutput + 1)
-            = values(i, j);
+            = this->values(i, j);
         }
     }
 
@@ -41,36 +42,33 @@ Block* Block::expandTo8x8() const {
  * @return
  */
 Block Block::forwardDCT() const {
-    // copy constructor
-    Block output{*this};
-
     // expand U and V blocks (4x4) to 8x8. Leave Y unchanged
-    auto inputExpanded = output.expandTo8x8();
-    output.values.resize(8, 8);
-    output.values = inputExpanded->values;
+    auto inputExpanded = this->expandTo8x8();
+    // copy constructor
+    Block output{*inputExpanded};
 
     // subtract 128 from the expanded input block (this)
-    for (auto i = 0; i < inputExpanded->values.rows(); i++) {
-        for (auto j = 0; j < inputExpanded->values.cols(); j++) {
-            output.values(i, j) -= 128;
+    for (auto i = 0; i < 8; i++) {
+        for (auto j = 0; j < 8; j++) {
+            inputExpanded->values(i, j) -= 128;
         }
     }
 
     // compute G(u,v) = 1/4 * alpha(u) * alpha(v) * sum FOR THE INPUT BLOCK, NOT output
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            output.values(u, v) = 0.25F * alpha(u) * alpha(v) * this->sumFDCT(u, v);
+            // output.values(u, v) = 0.25F * alpha(u) * alpha(v) * inputExpanded->sumFDCT(u, v);
         }
     }
 
     // divide by Q: quantize the DCT coefs. obtained above
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            output.values(u, v) /= Q(u, v);
+            inputExpanded->values(u, v) /= Q(u, v);
         }
     }
 
-    return output;
+    return *inputExpanded;
 }
 
 float Block::alpha(const int &u) const {
@@ -81,33 +79,44 @@ float Block::alpha(const int &u) const {
     }
 }
 
-Block Block::inverseDCT() const {
+/**
+ * Precondition: this->values.rows() = 8 and this->values.cols() == 8
+ * Must be an expanded U, V block or an original Y block
+ * @return
+ */
+Block * Block::inverseDCT() const {
 
     // copy constructor
     Block output{*this};
+    Block* tmpBlock = new Block{*this};
 
-    // multiply by Q
+    assert(values.rows() == 8);
+    assert(values.cols() == 8);
+    assert(Q.rows() == 8);
+    assert(Q.cols() == 8);
+
+    // multiply by Q to revert the division from DCT
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            output.values(u, v) *= Q(u, v);
+            tmpBlock->values(u, v) *= Q(u, v);
         }
     }
 
-    // f(x,y)
+    // compute f(x,y)
     for (int x = 0; x < 8; x++) {
         for (int y = 0; y < 8; y++) {
-            output.values(x, y) = int(0.25F * output.sumIDCT(x, y));
+            //output.values(x, y) = 0.25F * tmpBlock->sumIDCT(x, y);
         }
     }
 
     // add 128
-    for (auto i = 0; i < output.values.rows(); i++) {
-        for (auto j = 0; j < output.values.cols(); j++) {
-            output.values(i, j) += 128;
+    for (size_t i = 0; i < 8; i++) {
+        for (size_t j = 0; j < 8; j++) {
+            tmpBlock->values(i, j) += 128;
         }
     }
 
-    return output;
+    return tmpBlock;
 }
 
 float Block::sumFDCT(const int &u, const int &v) const {
@@ -127,7 +136,7 @@ float Block::sumIDCT(const int &x, const int &y) const {
 
     for (int u = 0; u < 8; u++) {
         for (int v = 0; v < 8; v++) {
-            sum += alpha(u) * alpha(v) * (float)values(x, y) * cos(((2 * x + 1) * u * PI) / 16) * cos(((2 * y + 1) * v * PI) / 16);
+            sum += alpha(u) * alpha(v) * values(x, y) * cos(((2 * x + 1) * u * PI) / 16) * cos(((2 * y + 1) * v * PI) / 16);
         }
     }
 

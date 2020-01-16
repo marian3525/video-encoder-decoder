@@ -14,7 +14,6 @@ class Block {
 public:
     Block(Matrix<int, Dynamic, Dynamic> values, BlockType type, std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>>  location):
                                             values{std::move(values)}, type{type}, location{std::move(location)} {
-        Q = Matrix<int, 8, 8>{};
         Q.row(0) << 6, 4, 4, 6, 10, 16, 20, 24;
         Q.row(1) << 5, 5, 6, 8, 10, 23, 24, 22;
         Q.row(2) << 6, 5, 6, 10, 16, 23, 28, 22;
@@ -27,7 +26,6 @@ public:
 
     explicit Block(Matrix<int, Dynamic, Dynamic> values):
             values{std::move(values)} {
-        Q = Matrix<int, 8, 8>{};
         Q.row(0) << 6, 4, 4, 6, 10, 16, 20, 24;
         Q.row(1) << 5, 5, 6, 8, 10, 23, 24, 22;
         Q.row(2) << 6, 5, 6, 10, 16, 23, 28, 22;
@@ -39,12 +37,15 @@ public:
     };
 
     Block() = delete;
-    Block(const Block& toCopy) = default;
+    Block(const Block& toCopy) noexcept {
+        values = toCopy.values;
+        type = toCopy.type;
+        location = toCopy.location;
+    };
     Block(Block&& toMove) noexcept {
         values = toMove.values;
         type = toMove.type;
         location = toMove.location;
-        Q = toMove.Q;
     };
 
     Matrix<int, Dynamic, Dynamic> values;
@@ -52,7 +53,7 @@ public:
     std::tuple<std::pair<int, int>, std::pair<int, int>, std::pair<int, int>, std::pair<int, int>> location;
 
     [[nodiscard]] Block forwardDCT() const;
-    [[nodiscard]] Block inverseDCT() const;
+    [[nodiscard]] Block * inverseDCT() const;
 
     [[nodiscard]] std::vector<ACCoefficient> entropy_encode() const;
 
@@ -78,7 +79,7 @@ public:
     static Matrix<int, Dynamic, Dynamic> zigZagReverse(const std::vector<int>& zigZagParsed);
 
 private:
-    Matrix<int, Dynamic, Dynamic> Q;
+    static Matrix<int, 8, 8> Q;
     static int END_OF_BLOCK;
 
     [[nodiscard]] float alpha(const int& u) const;
